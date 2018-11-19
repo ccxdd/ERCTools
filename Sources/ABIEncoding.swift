@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SSLE
 
 public enum InputSolidityType {
     case address(String)

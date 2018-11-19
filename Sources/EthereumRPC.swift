@@ -9,6 +9,7 @@
 import Foundation
 import Starscream
 import SwiftyJSON
+import SSLE
 
 public final class EthereumRPC: WebSocketDelegate {
     private static let shared = EthereumRPC()

@@ -132,7 +132,9 @@ Pod::Spec.new do |s|
   s.requires_arc = true
 
   # s.xcconfig = { "HEADER_SEARCH_PATHS" => "$(SDKROOT)/usr/include/libxml2" }
-  s.dependency 'Starscream'
-  s.dependency 'SwiftyJSON'
+  s.dependency 'SSLE', '~> 0.0.1'
+  s.dependency 'Starscream', '~> 3.0.6'
+  s.dependency 'SwiftyJSON', '~> 4.0'
+  s.dependency 'CryptoSwift', '~> 0.13'
 
 end
