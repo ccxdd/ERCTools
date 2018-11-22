@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "ERCTools"
-  s.version      = "0.0.1"
+  s.version      = "0.0.2"
   s.summary      = "ERCTools."
 
   # This description is used to generate tags and improve search results.
@@ -116,8 +116,7 @@ Pod::Spec.new do |s|
   #  the lib prefix of their name.
   #
 
-  # s.framework  = "SomeFramework"
-  # s.frameworks = "SomeFramework", "AnotherFramework"
+  s.frameworks = "Foundation"
 
   # s.library   = "iconv"
   # s.libraries = "iconv", "xml2"
@@ -132,7 +131,7 @@ Pod::Spec.new do |s|
   s.requires_arc = true
 
   # s.xcconfig = { "HEADER_SEARCH_PATHS" => "$(SDKROOT)/usr/include/libxml2" }
-  s.dependency 'SSLE', '~> 0.0.1'
+  s.dependency 'SSLE', '~> 0.0.6'
   s.dependency 'Starscream', '~> 3.0.6'
   s.dependency 'SwiftyJSON', '~> 4.0'
   s.dependency 'CryptoSwift', '~> 0.13'

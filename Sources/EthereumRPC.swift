@@ -19,11 +19,11 @@ public final class EthereumRPC: WebSocketDelegate {
     
     private init() {}
     
-    static var isConnected: Bool {
+    public static var isConnected: Bool {
         return shared.rpcSocket.isConnected
     }
     
-    static func connect(network: Network, changeStatus: ((Bool) -> Void)? = nil) {
+    public static func connect(network: Network, changeStatus: ((Bool) -> Void)? = nil) {
         let urlStr = "wss://\(network.rawValue).infura.io/ws"
         shared.rpcSocket = WebSocket(url: URL(string: urlStr)!)
         shared.rpcSocket.delegate = shared
@@ -31,28 +31,28 @@ public final class EthereumRPC: WebSocketDelegate {
         shared.rpcSocket.connect()
     }
     
-    static func eth_call(data: String, to: String? = nil, from: String? = nil) -> Response {
+    public static func eth_call(data: String, to: String? = nil, from: String? = nil) -> Response {
         let p = Request.ParamItem(from: from, to: to, data: data)
         return generate(request: Request(method: "eth_call", params: [.dict(p), .string("latest")], id: 0))
     }
     
-    static func eth_getBalance(addr: String) -> Response {
+    public static func eth_getBalance(addr: String) -> Response {
         return generate(request: Request(method: "eth_getBalance", params: [.string(addr), .string("latest")], id: 0))
     }
     
-    static func eth_getTransactionCount(addr: String) -> Response {
+    public static func eth_getTransactionCount(addr: String) -> Response {
         return generate(request: Request(method: "eth_getTransactionCount", params: [.string(addr), .string("latest")], id: 0))
     }
     
-    static func eth_getTransactionReceipt(tx: String) -> Response {
+    public static func eth_getTransactionReceipt(tx: String) -> Response {
         return generate(request: Request(method: "eth_getTransactionReceipt", params: [.string(tx)], id: 0))
     }
     
-    static func sendRawTransaction(tx: String) -> Response {
+    public static func sendRawTransaction(tx: String) -> Response {
         return generate(request: Request(method: "eth_sendRawTransaction", params: [.string(tx)], id: 0))
     }
     
-    static func eth_gasPrice() -> Response {
+    public static func eth_gasPrice() -> Response {
         return generate(request: Request(method: "eth_gasPrice", params: [], id: 0))
     }
     
@@ -118,13 +118,13 @@ public final class EthereumRPC: WebSocketDelegate {
     public func websocketDidReceiveData(socket: WebSocketClient, data: Data) {}
 }
 
-extension EthereumRPC {
+public extension EthereumRPC {
     public enum Network: String {
         case mainnet
         case ropsten
         case rinkeby
         
-        var chainID: Int {
+        public var chainID: Int {
             switch self {
             case .mainnet: return 1
             case .ropsten: return 3
@@ -145,13 +145,13 @@ extension EthereumRPC {
         var params: [ParamValue] = []
         var id: Int = 0
         
-        struct ParamItem: Codable {
+        public struct ParamItem: Codable {
             var from: String?
             var to: String?
             var data: String?
         }
         
-        enum ParamValue: Codable {
+        public enum ParamValue: Codable {
             case dict(ParamItem)
             case string(String)
             
@@ -186,7 +186,8 @@ extension EthereumRPC {
         fileprivate var errorClosure: (() -> Void)?
         fileprivate var ctrl: UIView?
         
-        @discardableResult func responseString(_ completion: @escaping (String) -> Void) -> Self {
+        @discardableResult
+        public func responseString(_ completion: @escaping (String) -> Void) -> Self {
             stringClosure = completion
             if shared.rpcSocket.isConnected {
                 try! startWrite()
@@ -196,12 +197,14 @@ extension EthereumRPC {
             return self
         }
         
-        @discardableResult func error(_ closure: @escaping () -> Void) -> Self {
+        @discardableResult
+        public func error(_ closure: @escaping () -> Void) -> Self {
             errorClosure = closure
             return self
         }
         
-        @discardableResult func ctrl(_ c: UIView?) -> Self {
+        @discardableResult
+        public func ctrl(_ c: UIView?) -> Self {
             ctrl = c
             ctrl?.isUserInteractionEnabled = false
             return self

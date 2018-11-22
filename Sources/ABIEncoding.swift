@@ -8,6 +8,7 @@
 
 import Foundation
 import SSLE
+import CryptoSwift
 
 public enum InputSolidityType {
     case address(String)
@@ -29,7 +30,7 @@ public enum InputSolidityType {
     case uint256Array([UInt])
     case addressArray([String])
     
-    var isDynamic: Bool {
+    public var isDynamic: Bool {
         switch self {
         case .string(_), .bytes(_), .uintArray(_), .uint8Array(_), .uint32Array(_), .uint128Array(_), .uint256Array(_), .addressArray(_):
             return true
@@ -39,7 +40,7 @@ public enum InputSolidityType {
     }
     
     /// 位置 + 长度 + 数组中每个值
-    var lines: Int {
+    public var lines: Int {
         switch self {
         case .string(_), .bytes(_), .uintArray(_), .uint8Array(_), .uint32Array(_), .uint128Array(_), .uint256Array(_), .addressArray(_):
             return 2 + dataLines
@@ -49,7 +50,7 @@ public enum InputSolidityType {
     }
     
     /// 数据行
-    var dataLines: Int {
+    public var dataLines: Int {
         switch self {
         case .string(let s):
             let dataCount = (s.data(using: .utf8)?.count ?? 0)
@@ -65,7 +66,7 @@ public enum InputSolidityType {
         }
     }
     
-    var typeLength: Int {
+    public var typeLength: Int {
         switch self {
         case .string(let s):
             let dataCount = (s.data(using: .utf8)?.count ?? 0)
@@ -79,7 +80,7 @@ public enum InputSolidityType {
         }
     }
     
-    var typeData: String {
+    public var typeData: String {
         switch self {
         case .string(let s):
             return s.hexString.fill0(len: 64 * dataLines, left: false)
@@ -114,7 +115,7 @@ public enum InputSolidityType {
         }
     }
     
-    var typeEncoding: SolidityTypeEncoding {
+    public var typeEncoding: SolidityTypeEncoding {
         var type = SolidityTypeEncoding()
         if isDynamic {
             type.length = typeLength.radix(16, len: 64)
@@ -123,7 +124,7 @@ public enum InputSolidityType {
         return type
     }
     
-    var desc: String {
+    public var desc: String {
         switch self {
         case .string(_):
             return "string"
@@ -165,7 +166,7 @@ public enum OutputSolidityType {
     case int
     case address
     
-    func decoding(total: Data, idx: Int) -> Data {
+    public func decoding(total: Data, idx: Int) -> Data {
         let start = idx * 32
         switch self {
         case .bytesFixed(let l):
@@ -185,10 +186,10 @@ public enum OutputSolidityType {
 }
 
 public struct SolidityReturnDecode {
-    var dataArray: [Data] = []
-    var arguments: [OutputSolidityType] = []
+    public var dataArray: [Data] = []
+    public var arguments: [OutputSolidityType] = []
     
-    func get<T>(index: Int, type: T.Type) -> T? where T: Decodable {
+    public func get<T>(index: Int, type: T.Type) -> T? where T: Decodable {
         guard !dataArray.isEmpty else { return nil }
         let i = min(index, dataArray.count - 1)
         let v = dataArray.at(i)!
@@ -209,14 +210,14 @@ public struct SolidityReturnDecode {
         return result as? T
     }
     
-    func model<T>(type: T.Type) -> T? where T: SolidityModelProtocol {
+    public func model<T>(type: T.Type) -> T? where T: SolidityModelProtocol {
         return T.converModel(self)
     }
 }
 
 public struct ABIFunc {
     
-    static func call(name: String, arguments: [InputSolidityType] = []) -> ABIFunc {
+    public static func call(name: String, arguments: [InputSolidityType] = []) -> ABIFunc {
         return ABIFunc(name: name, arguments: arguments)
     }
     
@@ -225,16 +226,16 @@ public struct ABIFunc {
         self.arguments = arguments
     }
     
-    var name: String
+    public var name: String
     
-    var arguments: [InputSolidityType] = []
+    public var arguments: [InputSolidityType] = []
     
-    var totalLines: Int {
+    public var totalLines: Int {
         let lines = arguments.reduce(0, { $0 + $1.lines })
         return lines
     }
     
-    var funcSign: String {
+    public var funcSign: String {
         var signatureArr = [name, "("]
         for (idx, i) in arguments.enumerated() {
             if idx == 0 {
@@ -248,7 +249,7 @@ public struct ABIFunc {
         return funcSign
     }
     
-    var encoding: String {
+    public var encoding: String {
         let argumentCount = arguments.count
         var prevDataLines = 0
         var encodingDataArr: [String] = [funcSign]
@@ -275,7 +276,7 @@ public struct ABIFunc {
         return encodingDataArr.joined(separator: "")
     }
     
-    static func decoding(_ r: String, arguments: OutputSolidityType...) -> SolidityReturnDecode {
+    public static func decoding(_ r: String, arguments: OutputSolidityType...) -> SolidityReturnDecode {
         let d = Data(hex: r)
         var dataArr: [Data] = []
         guard d.count % 32 == 0, d.count > 0 else { return SolidityReturnDecode() }
@@ -286,14 +287,14 @@ public struct ABIFunc {
     }
 }
 
-struct SolidityTypeEncoding {
+public struct SolidityTypeEncoding {
     var head: String?
     var length: String?
     var data: String = ""
 }
 
-extension String {
-    var clearAddressPrefix: String {
+public extension String {
+    public var clearAddressPrefix: String {
         let result = hasPrefix("0x") ? self[index(startIndex, offsetBy: 2)...].tS.lowercased() : lowercased()
         return result.fill0(len: 64)
     }
