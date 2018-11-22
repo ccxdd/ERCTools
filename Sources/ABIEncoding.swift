@@ -216,7 +216,6 @@ public struct SolidityReturnDecode {
 }
 
 public struct ABIFunc {
-    
     public static func call(name: String, arguments: [InputSolidityType] = []) -> ABIFunc {
         return ABIFunc(name: name, arguments: arguments)
     }
@@ -291,6 +290,10 @@ public struct SolidityTypeEncoding {
     var head: String?
     var length: String?
     var data: String = ""
+}
+
+public protocol SolidityModelProtocol {
+    static func converModel(_ decode: SolidityReturnDecode) -> Self?
 }
 
 public extension String {

@@ -111,7 +111,7 @@ public final class EthereumRPC: WebSocketDelegate {
             let resp = waitingMethods.removeValue(forKey: json["id"].intValue)
             resp?.ctrl?.isUserInteractionEnabled = true
             guard let msg = json["error"]["message"].string else { return }
-            Hint.flash(.labeledError(title: nil, subtitle: msg), delay: 2)
+            print(msg)
         }
     }
     
