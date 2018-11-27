@@ -16,6 +16,7 @@ public final class EthereumRPC: WebSocketDelegate {
     var rpcSocket: WebSocket!
     var waitingMethods: [Int: Response] = [:]
     var changeStatusClosure: ((Bool) -> Void)?
+    var generalErrorClosure: ((String) -> Void)?
     var timer: Timer?
     let timeoutInterval: TimeInterval = 20
     
@@ -31,6 +32,10 @@ public final class EthereumRPC: WebSocketDelegate {
         shared.rpcSocket.delegate = shared
         shared.changeStatusClosure = changeStatus
         shared.rpcSocket.connect()
+    }
+    
+    public static func generalErrorMessage(_ c: @escaping (String) -> Void) {
+        shared.generalErrorClosure = c
     }
     
     public static func eth_call(data: String, to: String? = nil, from: String? = nil) -> Response {
@@ -136,6 +141,7 @@ public final class EthereumRPC: WebSocketDelegate {
             let resp = waitingMethods.removeValue(forKey: json["id"].intValue)
             resp?.ctrl?.isUserInteractionEnabled = true
             guard let msg = json["error"]["message"].string else { return }
+            generalErrorClosure?(msg)
             print(msg)
         }
     }
