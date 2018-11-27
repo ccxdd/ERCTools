@@ -16,6 +16,8 @@ public final class EthereumRPC: WebSocketDelegate {
     var rpcSocket: WebSocket!
     var waitingMethods: [Int: Response] = [:]
     var changeStatusClosure: ((Bool) -> Void)?
+    var timer: Timer?
+    let timeoutInterval: TimeInterval = 20
     
     private init() {}
     
@@ -83,6 +85,28 @@ public final class EthereumRPC: WebSocketDelegate {
         }
     }
     
+    private func timerReset() {
+        timer?.invalidate()
+        if #available(iOS 10.0, *) {
+            timer = Timer.scheduledTimer(withTimeInterval: timeoutInterval, repeats: false) { [weak self] (t) in
+                print("Websocket Timeout Disconnect ❌")
+                self?.rpcSocket.disconnect()
+                self?.clearAllResponse()
+            }
+        }
+    }
+    
+    private func timerStop() {
+        timer?.invalidate()
+    }
+    
+    private func clearAllResponse() {
+        for r in waitingMethods.values {
+            r.ctrl?.isUserInteractionEnabled = true
+        }
+        waitingMethods.removeAll()
+    }
+    
     // MARK: - WebSocketDelegate
     public func websocketDidConnect(socket: WebSocketClient) {
         print("INFURA 🤝")
@@ -93,7 +117,7 @@ public final class EthereumRPC: WebSocketDelegate {
         if let err = error {
             print("INFURA 😫", err.localizedDescription)
             changeStatusClosure?(false)
-            waitingMethods.removeAll()
+            clearAllResponse()
             DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 5) {
                 socket.connect()
             }
@@ -101,6 +125,7 @@ public final class EthereumRPC: WebSocketDelegate {
     }
     
     public func websocketDidReceiveMessage(socket: WebSocketClient, text: String) {
+        timerStop()
         let json = JSON(parseJSON: text)
         if json["result"].stringValue.count > 0 {
             responseResult(model: String.self, text: text)
@@ -214,6 +239,7 @@ public extension EthereumRPC {
             guard let reqData = request.tJSONString()?.data(using: .utf8) else { throw Exception.requestDataError }
             shared.waitingMethods[request.id] = self
             shared.rpcSocket.write(data: reqData)
+            shared.timerReset()
         }
     }
     
