@@ -27,7 +27,7 @@ public final class EthereumRPC: WebSocketDelegate {
     }
     
     public static func connect(network: Network, changeStatus: ((Bool) -> Void)? = nil) {
-        let urlStr = "wss://\(network.rawValue).infura.io/ws"
+        let urlStr = "wss://\(network.rawValue).infura.io/ws/v3/4a994857f9b2458995c780d28b45ccef"
         shared.rpcSocket = WebSocket(url: URL(string: urlStr)!)
         shared.rpcSocket.delegate = shared
         shared.changeStatusClosure = changeStatus
