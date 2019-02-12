@@ -244,6 +244,7 @@ public extension EthereumRPC {
         private func startWrite() throws {
             guard let reqData = request.tJSONString()?.data(using: .utf8) else { throw Exception.requestDataError }
             shared.waitingMethods[request.id] = self
+            print("🚀", request.method, request.params.tJSONString() ?? "")
             shared.rpcSocket.write(data: reqData)
             shared.timerReset()
         }
