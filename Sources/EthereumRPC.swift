@@ -162,6 +162,14 @@ public extension EthereumRPC {
             case .rinkeby: return 4
             }
         }
+        
+        public var gastrackerWebsite: String {
+            switch self {
+            case .mainnet: return "https://etherscan.io/gastracker"
+            case .ropsten: return "https://ropsten.etherscan.io/gastracker"
+            case .rinkeby: return "https://rinkeby.etherscan.io/gastracker"
+            }
+        }
     }
     
     public enum Exception: Error {
