@@ -94,7 +94,7 @@ public final class EthereumRPC: WebSocketDelegate {
     
     private func timerReset() {
         timer?.invalidate()
-        if #available(iOS 10.0, *) {
+        if #available(iOS 10.0, OSX 10.12, *) {
             timer = Timer.scheduledTimer(withTimeInterval: timeoutInterval, repeats: false) { [weak self] (t) in
                 print("Websocket Timeout Disconnect ❌")
                 self?.rpcSocket.disconnect()
