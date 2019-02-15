@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "ERCTools"
-  s.version      = "0.0.7"
+  s.version      = "0.0.8"
   s.summary      = "ERCTools."
 
   # This description is used to generate tags and improve search results.
@@ -61,15 +61,15 @@ Pod::Spec.new do |s|
   #  the deployment target. You can optionally include the target after the platform.
   #
 
-  s.platform     = :ios
+  # s.platform     = :ios
   # s.platform     = :ios, "5.0"
 
   #  When using multiple platforms
   s.ios.deployment_target = "10.0"
-  # s.osx.deployment_target = "10.7"
+  s.osx.deployment_target = "10.12"
   # s.watchos.deployment_target = "2.0"
   # s.tvos.deployment_target = "10.0"
-  s.cocoapods_version = '>= 1.4.0'
+  s.cocoapods_version = '>= 1.6.0'
   s.swift_version = "4.2"
 
 
@@ -131,7 +131,7 @@ Pod::Spec.new do |s|
   s.requires_arc = true
 
   # s.xcconfig = { "HEADER_SEARCH_PATHS" => "$(SDKROOT)/usr/include/libxml2" }
-  s.dependency 'SSLE', '~> 0.0.6'
+  s.dependency 'SSLE', '~> 0.0.23'
   s.dependency 'Starscream', '~> 3.0.6'
   s.dependency 'SwiftyJSON', '~> 4.0'
   s.dependency 'CryptoSwift', '~> 0.13'

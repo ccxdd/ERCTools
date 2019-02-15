@@ -75,7 +75,9 @@ public final class EthereumRPC: WebSocketDelegate {
     private func responseResult<T>(model: T.Type, text: String) where T: Codable {
         guard let resp = text.data(using: .utf8)?.tModel(JSONRPCResult<T>.self), let result = resp.result else { return }
         let rpcResp = waitingMethods.removeValue(forKey: resp.id)
+        #if os(iOS)
         rpcResp?.ctrl?.isUserInteractionEnabled = true
+        #endif
         print("✔️", rpcResp?.request.method ?? "", text)
         if let r = result as? String {
             if r != "0x" {
@@ -106,9 +108,11 @@ public final class EthereumRPC: WebSocketDelegate {
     }
     
     private func clearAllResponse() {
+        #if os(iOS)
         for r in waitingMethods.values {
             r.ctrl?.isUserInteractionEnabled = true
         }
+        #endif
         waitingMethods.removeAll()
     }
     
@@ -139,7 +143,9 @@ public final class EthereumRPC: WebSocketDelegate {
         } else {
             print("❌", text)
             let resp = waitingMethods.removeValue(forKey: json["id"].intValue)
+            #if os(iOS)
             resp?.ctrl?.isUserInteractionEnabled = true
+            #endif
             guard let msg = json["error"]["message"].string else { return }
             generalErrorClosure?(msg)
             print(msg)
@@ -223,7 +229,9 @@ public extension EthereumRPC {
         var request: Request!
         fileprivate var stringClosure: ((String) -> Void)?
         fileprivate var errorClosure: (() -> Void)?
+        #if os(iOS)
         fileprivate var ctrl: UIView?
+        #endif
         
         @discardableResult
         public func responseString(_ completion: @escaping (String) -> Void) -> Self {
@@ -242,12 +250,14 @@ public extension EthereumRPC {
             return self
         }
         
+        #if os(iOS)
         @discardableResult
         public func ctrl(_ c: UIView?) -> Self {
             ctrl = c
             ctrl?.isUserInteractionEnabled = false
             return self
         }
+        #endif
         
         private func startWrite() throws {
             guard let reqData = request.tJSONString()?.data(using: .utf8) else { throw Exception.requestDataError }
