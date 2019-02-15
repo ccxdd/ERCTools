@@ -66,7 +66,7 @@ Pod::Spec.new do |s|
 
   #  When using multiple platforms
   s.ios.deployment_target = "10.0"
-  s.osx.deployment_target = "10.12"
+  s.osx.deployment_target = "10.10"
   # s.watchos.deployment_target = "2.0"
   # s.tvos.deployment_target = "10.0"
   s.cocoapods_version = '>= 1.6.0'
@@ -132,7 +132,7 @@ Pod::Spec.new do |s|
   s.requires_arc = true
 
   # s.xcconfig = { "HEADER_SEARCH_PATHS" => "$(SDKROOT)/usr/include/libxml2" }
-  s.dependency 'SSLE', '~> 0.0.23'
+  s.dependency 'SSLE', '~> 0.0.24'
   s.dependency 'Starscream', '~> 3.0.6'
   s.dependency 'SwiftyJSON', '~> 4.0'
   s.dependency 'CryptoSwift', '~> 0.13'
