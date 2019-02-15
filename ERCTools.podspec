@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "ERCTools"
-  s.version      = "0.0.8"
+  s.version      = "0.0.9"
   s.summary      = "ERCTools."
 
   # This description is used to generate tags and improve search results.
@@ -117,6 +117,7 @@ Pod::Spec.new do |s|
   #
 
   s.frameworks = "Foundation"
+  s.ios.framework  = "UIKit"
 
   # s.library   = "iconv"
   # s.libraries = "iconv", "xml2"
