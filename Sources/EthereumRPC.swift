@@ -40,9 +40,7 @@ public final class EthereumRPC {
             print("INFURA 😫", code, reason, clean)
             changeStatus?(false)
             shared.clearAllResponse()
-            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 5) {
-                shared.ws.open()
-            }
+            shared.ws.open()
         }
         // error
         shared.ws.event.error = { error in
