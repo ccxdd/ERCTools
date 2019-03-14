@@ -7,13 +7,13 @@
 //
 
 import Foundation
-import Starscream
+import SwiftWebSocket
 import SwiftyJSON
 import SSLE
 
-public final class EthereumRPC: WebSocketDelegate {
+public final class EthereumRPC {
     private static let shared = EthereumRPC()
-    var rpcSocket: WebSocket!
+    var ws: SwiftWebSocket.WebSocket!
     var waitingMethods: [Int: Response] = [:]
     var changeStatusClosure: ((Bool) -> Void)?
     var generalErrorClosure: ((String) -> Void)?
@@ -23,15 +23,51 @@ public final class EthereumRPC: WebSocketDelegate {
     private init() {}
     
     public static var isConnected: Bool {
-        return shared.rpcSocket.isConnected
+        return shared.ws.readyState == .open
     }
     
     public static func connect(network: Network, changeStatus: ((Bool) -> Void)? = nil) {
         let urlStr = "wss://\(network.rawValue).infura.io/ws/v3/4a994857f9b2458995c780d28b45ccef"
-        shared.rpcSocket = WebSocket(url: URL(string: urlStr)!)
-        shared.rpcSocket.delegate = shared
         shared.changeStatusClosure = changeStatus
-        shared.rpcSocket.connect()
+        shared.ws = WebSocket(urlStr)
+        // open
+        shared.ws.event.open = {
+            print("INFURA 🤝")
+            changeStatus?(true)
+        }
+        // close
+        shared.ws.event.close = { code, reason, clean in
+            print("INFURA 😫", code, reason, clean)
+            changeStatus?(false)
+            shared.clearAllResponse()
+            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 5) {
+                shared.ws.open()
+            }
+        }
+        // error
+        shared.ws.event.error = { error in
+            print("INFURA 😫", error)
+        }
+        // message
+        shared.ws.event.message = { message in
+            shared.timerStop()
+            guard let text = message as? String else { print("❌", "Unknown Message", message); return }
+            let json = JSON(parseJSON: text)
+            if json["result"].stringValue.count > 0 {
+                shared.responseResult(model: String.self, text: text)
+            } else if json["result"].dictionary != nil {
+                shared.responseResult(model: TxReceipt.self, text: text)
+            } else {
+                print("❌", text)
+                let resp = shared.waitingMethods.removeValue(forKey: json["id"].intValue)
+                #if os(iOS)
+                resp?.ctrl?.isUserInteractionEnabled = true
+                #endif
+                guard let msg = json["error"]["message"].string else { return }
+                shared.generalErrorClosure?(msg)
+                print(msg)
+            }
+        }
     }
     
     public static func generalErrorMessage(_ c: @escaping (String) -> Void) {
@@ -97,7 +133,7 @@ public final class EthereumRPC: WebSocketDelegate {
         if #available(iOS 10.0, OSX 10.12, *) {
             timer = Timer.scheduledTimer(withTimeInterval: timeoutInterval, repeats: false) { [weak self] (t) in
                 print("Websocket Timeout Disconnect ❌")
-                self?.rpcSocket.disconnect()
+                self?.ws.close()
                 self?.clearAllResponse()
             }
         }
@@ -115,44 +151,6 @@ public final class EthereumRPC: WebSocketDelegate {
         #endif
         waitingMethods.removeAll()
     }
-    
-    // MARK: - WebSocketDelegate
-    public func websocketDidConnect(socket: WebSocketClient) {
-        print("INFURA 🤝")
-        changeStatusClosure?(true)
-    }
-    
-    public func websocketDidDisconnect(socket: WebSocketClient, error: Error?) {
-        if let err = error {
-            print("INFURA 😫", err.localizedDescription)
-            changeStatusClosure?(false)
-            clearAllResponse()
-            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 5) {
-                socket.connect()
-            }
-        }
-    }
-    
-    public func websocketDidReceiveMessage(socket: WebSocketClient, text: String) {
-        timerStop()
-        let json = JSON(parseJSON: text)
-        if json["result"].stringValue.count > 0 {
-            responseResult(model: String.self, text: text)
-        } else if json["result"].dictionary != nil {
-            responseResult(model: TxReceipt.self, text: text)
-        } else {
-            print("❌", text)
-            let resp = waitingMethods.removeValue(forKey: json["id"].intValue)
-            #if os(iOS)
-            resp?.ctrl?.isUserInteractionEnabled = true
-            #endif
-            guard let msg = json["error"]["message"].string else { return }
-            generalErrorClosure?(msg)
-            print(msg)
-        }
-    }
-    
-    public func websocketDidReceiveData(socket: WebSocketClient, data: Data) {}
 }
 
 public extension EthereumRPC {
@@ -239,10 +237,10 @@ public extension EthereumRPC {
         @discardableResult
         public func responseString(_ completion: @escaping (String) -> Void) -> Self {
             stringClosure = completion
-            if shared.rpcSocket.isConnected {
+            if shared.ws.readyState == .open {
                 try! startWrite()
             } else {
-                shared.rpcSocket.connect()
+                shared.ws.open()
             }
             return self
         }
@@ -266,7 +264,7 @@ public extension EthereumRPC {
             guard let reqData = request.tJSONString()?.data(using: .utf8) else { throw Exception.requestDataError }
             shared.waitingMethods[request.id] = self
             print("🚀", request.method, request.params.tJSONString() ?? "")
-            shared.rpcSocket.write(data: reqData)
+            shared.ws.send(data: reqData)
             shared.timerReset()
         }
     }
