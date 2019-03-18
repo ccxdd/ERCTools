@@ -19,6 +19,7 @@ public final class EthereumRPC {
     var generalErrorClosure: ((String) -> Void)?
     var timer: Timer?
     let timeoutInterval: TimeInterval = 20
+    public var network: Network!
     
     private init() {}
     
@@ -27,18 +28,28 @@ public final class EthereumRPC {
     }
     
     public static func connect(network: Network, changeStatus: ((Bool) -> Void)? = nil) {
-        let urlStr = "wss://\(network.rawValue).infura.io/ws/v3/4a994857f9b2458995c780d28b45ccef"
         shared.changeStatusClosure = changeStatus
-        shared.ws = WebSocket(urlStr)
+        shared.network = network
+        shared.ws = WebSocket(network.infuraWSSURL)
+        wsEvents()
+    }
+    
+    public static func reconnection() {
+        guard shared.network != nil else { return }
+        shared.ws = WebSocket(shared.network.infuraWSSURL)
+        wsEvents()
+    }
+    
+    public static func wsEvents() {
         // open
         shared.ws.event.open = {
             print("INFURA 🤝")
-            changeStatus?(true)
+            shared.changeStatusClosure?(true)
         }
         // close
         shared.ws.event.close = { code, reason, clean in
             print("INFURA 😫", code, reason, clean)
-            changeStatus?(false)
+            shared.changeStatusClosure?(false)
             shared.clearAllResponse()
             shared.ws.open()
         }
@@ -132,7 +143,6 @@ public final class EthereumRPC {
             timer = Timer.scheduledTimer(withTimeInterval: timeoutInterval, repeats: false) { [weak self] (t) in
                 print("Websocket Timeout Disconnect ❌")
                 self?.ws.close()
-                self?.clearAllResponse()
             }
         }
     }
@@ -170,9 +180,20 @@ public extension EthereumRPC {
         public var gastrackerWebsite: String {
             switch self {
             case .mainnet: return "https://etherscan.io/gastracker"
-            case .ropsten: return "https://ropsten.etherscan.io/gastracker"
-            case .rinkeby: return "https://rinkeby.etherscan.io/gastracker"
-            case .kovan: return "https://kovan.etherscan.io/gastracker"
+            default: return "https://\(self.rawValue).etherscan.io/gastracker"
+            }
+        }
+        
+        /// infura.io WSS URL
+        public var infuraWSSURL: String {
+            return "wss://\(self.rawValue).infura.io/ws/v3/4a994857f9b2458995c780d28b45ccef"
+        }
+        
+        /// etherscan.io
+        public var etherscanApiURL: String {
+            switch self {
+            case .mainnet: return "https://api.etherscan.io/"
+            default: return "https://api-\(self.rawValue).etherscan.io/"
             }
         }
     }
