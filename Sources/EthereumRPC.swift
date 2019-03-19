@@ -31,49 +31,49 @@ public final class EthereumRPC {
         shared.changeStatusClosure = changeStatus
         shared.network = network
         shared.ws = WebSocket(network.infuraWSSURL)
-        wsEvents()
+        shared.wsEvents()
     }
     
     public static func reconnection() {
         guard shared.network != nil else { return }
         shared.ws = WebSocket(shared.network.infuraWSSURL)
-        wsEvents()
+        shared.wsEvents()
     }
     
-    public static func wsEvents() {
+    func wsEvents() {
         // open
-        shared.ws.event.open = {
-            print("INFURA 🤝")
-            shared.changeStatusClosure?(true)
+        ws.event.open = { [weak self] in
+            print("INFURA 🤝", self!.network.rawValue)
+            self?.changeStatusClosure?(true)
         }
         // close
-        shared.ws.event.close = { code, reason, clean in
+        ws.event.close = { [weak self] code, reason, clean in
             print("INFURA 😫", code, reason, clean)
-            shared.changeStatusClosure?(false)
-            shared.clearAllResponse()
-            shared.ws.open()
+            self?.changeStatusClosure?(false)
+            self?.clearAllResponse()
+            self?.ws.open()
         }
         // error
-        shared.ws.event.error = { error in
+        ws.event.error = { error in
             print("INFURA 😫", error)
         }
         // message
-        shared.ws.event.message = { message in
-            shared.timerStop()
+        ws.event.message = { [weak self] message in
+            self?.timerStop()
             guard let text = message as? String else { print("❌", "Unknown Message", message); return }
             let json = JSON(parseJSON: text)
             if json["result"].stringValue.count > 0 {
-                shared.responseResult(model: String.self, text: text)
+                self?.responseResult(model: String.self, text: text)
             } else if json["result"].dictionary != nil {
-                shared.responseResult(model: TxReceipt.self, text: text)
+                self?.responseResult(model: TxReceipt.self, text: text)
             } else {
                 print("❌", text)
-                let resp = shared.waitingMethods.removeValue(forKey: json["id"].intValue)
+                let resp = self?.waitingMethods.removeValue(forKey: json["id"].intValue)
                 #if os(iOS)
                 resp?.ctrl?.isUserInteractionEnabled = true
                 #endif
                 guard let msg = json["error"]["message"].string else { return }
-                shared.generalErrorClosure?(msg)
+                self?.generalErrorClosure?(msg)
                 print(msg)
             }
         }
@@ -81,6 +81,10 @@ public final class EthereumRPC {
     
     public static func generalErrorMessage(_ c: @escaping (String) -> Void) {
         shared.generalErrorClosure = c
+    }
+    
+    public static func changeConnectStatus(_ c: @escaping (Bool) -> Void) {
+        shared.changeStatusClosure = c
     }
     
     public static func eth_call(data: String, to: String? = nil, from: String? = nil) -> Response {
