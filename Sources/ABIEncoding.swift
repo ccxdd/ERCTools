@@ -14,25 +14,26 @@ public enum InputSolidityType {
     case address(String)
     case bytes(Array<UInt8>)
     case bytesFixed(Int, Array<UInt8>)
-    /// = uint8 value 0,1
     case bool(Bool)
     case string(String)
-    /// = uint256
+    case int(Int)
     case uint(UInt)
     case uint8(UInt8)
     case uint32(UInt32)
     case uint128(UInt)
     case uint256(UInt)
     case uintArray([UInt])
-    case uint8Array([UInt])
+    case uint8Array([UInt8])
     case uint32Array([UInt])
     case uint128Array([UInt])
     case uint256Array([UInt])
     case addressArray([String])
+    case uintArrayFixed(Int, [UInt8])
+    case intArrayFixed(Int, [Int])
     
     public var isDynamic: Bool {
         switch self {
-        case .string(_), .bytes(_), .uintArray(_), .uint8Array(_), .uint32Array(_), .uint128Array(_), .uint256Array(_), .addressArray(_):
+        case .string, .bytes, .uintArray, .uint8Array, .uint32Array, .uint128Array, .uint256Array, .addressArray:
             return true
         default:
             return false
@@ -42,8 +43,10 @@ public enum InputSolidityType {
     /// 位置 + 长度 + 数组中每个值
     public var lines: Int {
         switch self {
-        case .string(_), .bytes(_), .uintArray(_), .uint8Array(_), .uint32Array(_), .uint128Array(_), .uint256Array(_), .addressArray(_):
+        case .string, .bytes, .uintArray, .uint8Array, .uint32Array, .uint128Array, .uint256Array, .addressArray:
             return 2 + dataLines
+        case .uintArrayFixed(let l, _), .intArrayFixed(let l, _):
+            return l
         default:
             return 1
         }
@@ -57,26 +60,33 @@ public enum InputSolidityType {
             return dataCount / 32 + (dataCount % 32 == 0 ? 0 : 1)
         case .bytes(let s):
             return s.count / 32 + (s.count % 32 == 0 ? 0 : 1)
-        case .uintArray(let a), .uint8Array(let a), .uint32Array(let a), .uint128Array(let a), .uint256Array(let a):
+        case .uintArray(let a), .uint32Array(let a), .uint128Array(let a), .uint256Array(let a):
+            return a.count
+        case .uint8Array(let a):
             return a.count
         case .addressArray(let a):
             return a.count
+        case .uintArrayFixed(let l, _), .intArrayFixed(let l, _):
+            return l
         default:
             return 1
         }
     }
     
-    public var typeLength: Int {
+    /// Dynamic only
+    public var typeLength: (value: Int, hex: String) {
         switch self {
         case .string(let s):
             let dataCount = (s.data(using: .utf8)?.count ?? 0)
-            return dataCount
+            return (dataCount, dataCount.radix(16, len: 64))
         case .bytes(let s):
-            return s.count
-        case .uintArray(let a), .uint8Array(let a), .uint32Array(let a), .uint128Array(let a), .uint256Array(let a):
-            return a.count
+            return (s.count, s.count.radix(16, len: 64))
+        case .uintArray(let a), .uint32Array(let a), .uint128Array(let a), .uint256Array(let a):
+            return (a.count, a.count.radix(16, len: 64))
+        case .uint8Array(let a):
+            return (a.count, a.count.radix(16, len: 64))
         default:
-            return 0
+            return (0, "")
         }
     }
     
@@ -93,13 +103,22 @@ public enum InputSolidityType {
             return s.clearAddressPrefix
         case .bool(let b):
             return (b ? 1 : 0).radix(16, len: 64)
+        case .int(let i):
+            return i.radix(16, len: 64)
         case .uint8(let i):
             return Int(i).radix(16, len: 64)
         case .uint32(let i):
             return Int(i).radix(16, len: 64)
         case .uint128(let i), .uint256(let i), .uint(let i):
             return Int(i).radix(16, len: 64)
-        case .uint8Array(let a), .uint32Array(let a), .uint128Array(let a), .uint256Array(let a), .uintArray(let a):
+        case .uint32Array(let a), .uint128Array(let a), .uint256Array(let a), .uintArray(let a):
+            var strArr: [String] = []
+            for i in a {
+                let v = Int(i).radix(16, len: 64)
+                strArr.append(v)
+            }
+            return strArr.joined(separator: "")
+        case .uint8Array(let a):
             var strArr: [String] = []
             for i in a {
                 let v = Int(i).radix(16, len: 64)
@@ -112,48 +131,59 @@ public enum InputSolidityType {
                 strArr.append(i.clearAddressPrefix)
             }
             return strArr.joined(separator: "")
+        case .uintArrayFixed(let l, let arr):
+            var strArr: [String] = []
+            for i in 0 ..< l {
+                let v = Int(arr.at(i) ?? 0).radix(16, len: 64)
+                strArr.append(v)
+            }
+            return strArr.joined(separator: "")
+        case .intArrayFixed(let l, let arr):
+            var strArr: [String] = []
+            for i in 0 ..< l {
+                let v = (arr.at(i) ?? 0).radix(16, len: 64)
+                strArr.append(v)
+            }
+            return strArr.joined(separator: "")
         }
-    }
-    
-    public var typeEncoding: SolidityTypeEncoding {
-        var type = SolidityTypeEncoding()
-        if isDynamic {
-            type.length = typeLength.radix(16, len: 64)
-        }
-        type.data = typeData
-        return type
     }
     
     public var desc: String {
         switch self {
-        case .string(_):
+        case .string:
             return "string"
-        case .address(_):
+        case .address:
             return "address"
-        case .bytes(_):
+        case .bytes:
             return "bytes"
         case .bytesFixed(let l, _):
             return "bytes\(min(32, l))"
-        case .bool(_):
+        case .bool:
             return "bool"
-        case .uint8(_):
+        case .int:
+            return "int256"
+        case .uint8:
             return "uint8"
-        case .uint32(_):
+        case .uint32:
             return "uint32"
-        case .uint128(_):
+        case .uint128:
             return "uint128"
-        case .uint(_), .uint256(_):
+        case .uint, .uint256:
             return "uint256"
-        case .uint8Array(_):
+        case .uint8Array:
             return "uint8[]"
-        case .uint32Array(_):
+        case .uint32Array:
             return "uint32[]"
-        case .uint128Array(_):
+        case .uint128Array:
             return "uint128[]"
-        case .uintArray(_), .uint256Array(_):
+        case .uintArray, .uint256Array:
             return "uint256[]"
         case .addressArray:
             return "address[]"
+        case .uintArrayFixed(let l, _):
+            return "uint8[\(l)]"
+        case .intArrayFixed(let l, _):
+            return "int256[\(l)]"
         }
     }
 }
@@ -202,7 +232,7 @@ public struct SolidityReturnDecode {
             result = v.hex().hexToInt
         case .bool:
             result = (v.hex().hexToInt == 0 ? false : true)
-        case .bytesFixed(_), .bytes:
+        case .bytesFixed, .bytes:
             result = v.bytes
         case .address:
             result = "0x" + v.hex()
@@ -249,29 +279,29 @@ public struct ABIFunc {
     }
     
     public var encoding: String {
-        let argumentCount = arguments.count
-        var prevDataLines = 0
         var encodingDataArr: [String] = [funcSign]
-        var dynamicTypeArr: [SolidityTypeEncoding] = []
-        /// 保存动态类型的头部及非动态类型的值
+        var totalDataLines = 0
+        var dynamicEncodingDataArr: [String] = []
+        // 静态类型值lines + 动态类型值lines
         for i in arguments {
-            var type = i.typeEncoding
+            totalDataLines += i.dataLines
             if i.isDynamic {
-                /// 第2行到当前type的数据行
-                let head = (argumentCount + prevDataLines) * 32
-                type.head = head.radix(16, len: 64)
-                encodingDataArr.append(type.head!)
-                dynamicTypeArr.append(type)
-                prevDataLines += (1 + i.dataLines)
-            } else {
-                encodingDataArr.append(type.data)
+                dynamicEncodingDataArr.append(i.typeLength.hex)
+                dynamicEncodingDataArr.append(i.typeData)
             }
         }
-        /// 保存动态类型的长度和值
-        for i in dynamicTypeArr {
-            encodingDataArr.append(i.length!)
-            encodingDataArr.append(i.data)
+        //
+        for i in arguments {
+            if i.isDynamic {
+                // i 的数据行位置
+                let position = totalDataLines * 32
+                encodingDataArr.append(position.radix(16, len: 64))
+                totalDataLines += i.dataLines + 1   // 1: 数据长度
+            } else {
+                encodingDataArr.append(i.typeData)
+            }
         }
+        encodingDataArr.append(contentsOf: dynamicEncodingDataArr)
         return encodingDataArr.joined(separator: "")
     }
     
@@ -286,12 +316,6 @@ public struct ABIFunc {
     }
 }
 
-public struct SolidityTypeEncoding {
-    var head: String?
-    var length: String?
-    var data: String = ""
-}
-
 public protocol SolidityModelProtocol {
     static func converModel(_ decode: SolidityReturnDecode) -> Self?
 }
@@ -302,3 +326,4 @@ public extension String {
         return result.fill0(len: 64)
     }
 }
+
