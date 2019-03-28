@@ -45,8 +45,8 @@ public enum InputSolidityType {
         switch self {
         case .string, .bytes, .uintArray, .uint8Array, .uint32Array, .uint128Array, .uint256Array, .addressArray:
             return 2 + dataLines
-        case .uintArrayFixed(let l, _), .intArrayFixed(let l, _):
-            return l
+        case .uintArrayFixed(let len, _), .intArrayFixed(let len, _):
+            return len
         default:
             return 1
         }
@@ -66,8 +66,8 @@ public enum InputSolidityType {
             return a.count
         case .addressArray(let a):
             return a.count
-        case .uintArrayFixed(let l, _), .intArrayFixed(let l, _):
-            return l
+        case .uintArrayFixed(let len, _), .intArrayFixed(let len, _):
+            return len
         default:
             return 1
         }
@@ -84,6 +84,8 @@ public enum InputSolidityType {
         case .uintArray(let a), .uint32Array(let a), .uint128Array(let a), .uint256Array(let a):
             return (a.count, a.count.radix(16, len: 64))
         case .uint8Array(let a):
+            return (a.count, a.count.radix(16, len: 64))
+        case .addressArray(let a):
             return (a.count, a.count.radix(16, len: 64))
         default:
             return (0, "")
@@ -284,10 +286,12 @@ public struct ABIFunc {
         var dynamicEncodingDataArr: [String] = []
         // 静态类型值lines + 动态类型值lines
         for i in arguments {
-            totalDataLines += i.dataLines
             if i.isDynamic {
                 dynamicEncodingDataArr.append(i.typeLength.hex)
                 dynamicEncodingDataArr.append(i.typeData)
+                totalDataLines += 1 // 1: 数据位置
+            } else {
+                totalDataLines += i.dataLines
             }
         }
         //
