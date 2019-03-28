@@ -204,10 +204,10 @@ public enum OutputSolidityType {
         case .bool, .int:
             return total[start ..< start + 32]
         case .string, .bytes:
-            guard let s = total[start ..< start + 32].hex().hexToInt,
-                let len = total[s ..< s + 32].hex().hexToInt, len > 0
+            guard let position = total[start ..< start + 32].hex().hexToInt,
+                let len = total[position ..< position + 32].hex().hexToInt, len > 0
                 else { return Data() }
-            let s2 = s + 32
+            let s2 = position + 32
             return total[s2 ..< s2 + len]
         case .address:
             return total[start + 12 ..< start + 32]
