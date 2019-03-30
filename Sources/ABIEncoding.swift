@@ -197,6 +197,7 @@ public enum OutputSolidityType {
     case bool
     case int
     case address
+    case intArray(Int)
     
     public func decoding(total: Data, idx: Int) -> Data {
         let start = idx * 32
@@ -213,6 +214,8 @@ public enum OutputSolidityType {
             return total[s2 ..< s2 + len]
         case .address:
             return total[start + 12 ..< start + 32]
+        case .intArray(let len):
+            return total[start ..< start + len * 32]
         }
     }
 }
@@ -238,8 +241,41 @@ public struct SolidityReturnDecode {
             result = v.bytes
         case .address:
             result = "0x" + v.hex()
+        case .intArray:
+            guard v.count % 32 == 0 else { return nil }
+            var arr: [Int] = []
+            var hexStr = v.hex()
+            for i in 0 ..< (hexStr.count / 64) {
+                let subStr = hexStr.sub(from: i * 64, to: i * 64 + 64)
+                arr.append(subStr?.hexToInt ?? 0)
+            }
+            result = arr
         }
         return result as? T
+    }
+    
+    public func string(idx: Int) -> String {
+        return get(index: idx, type: String.self) ?? ""
+    }
+    
+    public func int(idx: Int) -> Int {
+        return get(index: idx, type: Int.self) ?? 0
+    }
+    
+    public func bool(idx: Int) -> Bool {
+        return get(index: idx, type: Bool.self) ?? false
+    }
+    
+    public func address(idx: Int) -> String {
+        return get(index: idx, type: String.self) ?? ""
+    }
+    
+    public func intArray(idx: Int) -> [Int] {
+        return get(index: idx, type: [Int].self) ?? []
+    }
+    
+    public func bytes(idx: Int) -> [Int8] {
+        return get(index: idx, type: [Int8].self) ?? []
     }
     
     public func model<T>(type: T.Type) -> T? where T: SolidityModelProtocol {
