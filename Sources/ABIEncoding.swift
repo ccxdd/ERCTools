@@ -232,7 +232,7 @@ public struct SolidityReturnDecode {
         var result: Decodable
         switch t {
         case .string:
-            result = v.tString
+            result = v.tS
         case .int:
             result = v.hex().hexToInt
         case .bool:
