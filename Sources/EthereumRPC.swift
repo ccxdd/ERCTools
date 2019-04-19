@@ -170,14 +170,18 @@ public extension EthereumRPC {
         case mainnet
         case ropsten
         case rinkeby
+        case goerli
         case kovan
+        case tobalaba
         
         public var chainID: Int {
             switch self {
             case .mainnet: return 1
             case .ropsten: return 3
             case .rinkeby: return 4
+            case .goerli: return 5
             case .kovan: return 42
+            case .tobalaba: return 401697
             }
         }
         
