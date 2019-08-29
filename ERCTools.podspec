@@ -69,8 +69,8 @@ Pod::Spec.new do |s|
   s.osx.deployment_target = "10.12"
   # s.watchos.deployment_target = "2.0"
   # s.tvos.deployment_target = "10.0"
-  s.cocoapods_version = '>= 1.4.0'
-  s.swift_version = "4.0"
+  s.cocoapods_version = '>= 1.6.0'
+  s.swift_version = "5.0"
 
 
   # ――― Source Location ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
@@ -132,9 +132,9 @@ Pod::Spec.new do |s|
   s.requires_arc = true
 
   # s.xcconfig = { "HEADER_SEARCH_PATHS" => "$(SDKROOT)/usr/include/libxml2" }
-  s.dependency 'SSLE', '~> 0.0.25'
+  s.dependency 'SSLE', '~> 0.0.33'
   s.dependency 'SwiftWebSocket', '~> 2.7.0'
   s.dependency 'SwiftyJSON', '~> 4.2.0'
-  s.dependency 'CryptoSwift', '~> 0.14'
+  s.dependency 'CryptoSwift', '~> 0.15'
 
 end

@@ -10,6 +10,12 @@ import Foundation
 import SwiftWebSocket
 import SwiftyJSON
 import SSLE
+import Alamofire
+
+public protocol RPCNode {
+    var wssURL: String { get }
+    var httpURL: String { get }
+}
 
 public final class EthereumRPC {
     private static let shared = EthereumRPC()
@@ -18,8 +24,9 @@ public final class EthereumRPC {
     var changeStatusClosure: ((Bool) -> Void)?
     var generalErrorClosure: ((String) -> Void)?
     var timer: Timer?
+    var connectType: ConnectType = .Https
     let timeoutInterval: TimeInterval = 20
-    public var network: Network!
+    public var rpcNode: RPCNode!
     
     private init() {}
     
@@ -27,23 +34,27 @@ public final class EthereumRPC {
         return shared.ws.readyState == .open
     }
     
-    public static func connect(network: Network, changeStatus: ((Bool) -> Void)? = nil) {
+    public static func connectWSS(changeStatus: ((Bool) -> Void)? = nil) {
+        shared.connectType = .WebSocket
         shared.changeStatusClosure = changeStatus
-        shared.network = network
-        shared.ws = WebSocket(network.infuraWSSURL)
+        shared.ws = WebSocket(shared.rpcNode.wssURL)
         shared.wsEvents()
     }
     
-    public static func reconnection() {
-        guard shared.network != nil else { return }
-        shared.ws = WebSocket(shared.network.infuraWSSURL)
+    public static func reconnectionWSS() {
+        guard shared.rpcNode != nil else { return }
+        shared.ws = WebSocket(shared.rpcNode.wssURL)
         shared.wsEvents()
+    }
+    
+    public static func setRPC(node: RPCNode) {
+        shared.rpcNode = node
     }
     
     func wsEvents() {
         // open
         ws.event.open = { [weak self] in
-            print("INFURA 🤝", self!.network.rawValue)
+            print("INFURA 🤝", self!.rpcNode.wssURL)
             self?.changeStatusClosure?(true)
         }
         // close
@@ -61,21 +72,7 @@ public final class EthereumRPC {
         ws.event.message = { [weak self] message in
             self?.timerStop()
             guard let text = message as? String else { print("❌", "Unknown Message", message); return }
-            let json = JSON(parseJSON: text)
-            if json["result"].stringValue.count > 0 {
-                self?.responseResult(model: String.self, text: text)
-            } else if json["result"].dictionary != nil {
-                self?.responseResult(model: TxReceipt.self, text: text)
-            } else {
-                print("❌", text)
-                let resp = self?.waitingMethods.removeValue(forKey: json["id"].intValue)
-                #if os(iOS)
-                resp?.ctrl?.isUserInteractionEnabled = true
-                #endif
-                guard let msg = json["error"]["message"].string else { return }
-                self?.generalErrorClosure?(msg)
-                print(msg)
-            }
+            self?.responseRawString(text)
         }
     }
     
@@ -89,15 +86,15 @@ public final class EthereumRPC {
     
     public static func eth_call(data: String, to: String? = nil, from: String? = nil) -> Response {
         let p = Request.ParamItem(from: from, to: to, data: data)
-        return generate(request: Request(method: "eth_call", params: [.dict(p), .string("latest")], id: 0))
+        return generate(request: Request(method: "eth_call", params: [.dict(p), .latest], id: 0))
     }
     
     public static func eth_getBalance(addr: String) -> Response {
-        return generate(request: Request(method: "eth_getBalance", params: [.string(addr), .string("latest")], id: 0))
+        return generate(request: Request(method: "eth_getBalance", params: [.string(addr), .latest], id: 0))
     }
     
     public static func eth_getTransactionCount(addr: String) -> Response {
-        return generate(request: Request(method: "eth_getTransactionCount", params: [.string(addr), .string("latest")], id: 0))
+        return generate(request: Request(method: "eth_getTransactionCount", params: [.string(addr), .latest], id: 0))
     }
     
     public static func eth_getTransactionReceipt(tx: String) -> Response {
@@ -110,6 +107,32 @@ public final class EthereumRPC {
     
     public static func eth_gasPrice() -> Response {
         return generate(request: Request(method: "eth_gasPrice", params: [], id: 0))
+    }
+    
+    public static func eth_chainId() -> Response {
+        return generate(request: Request(method: "eth_chainId", params: [], id: 0))
+    }
+    
+    public static func net_version() -> Response {
+        return generate(request: Request(method: "net_version", params: [], id: 0))
+    }
+    
+    public static func eth_getBlockByHash(_ blockHash: String, flag: Bool = false) -> Response {
+        return generate(request: Request(method: "eth_getBlockByHash", params: [.string(blockHash), .flag(flag)], id: 0))
+    }
+    
+    public static func eth_getBlockByNumber(_ number: String, flag: Bool = false) -> Response {
+        return generate(request: Request(method: "eth_getBlockByNumber", params: [.string(number), .flag(flag)], id: 0))
+    }
+    
+    public static func eth_getLogs(addr: String? = nil, from: String? = nil, to: String? = nil,
+                                   topics: [[String]]? = nil, blockHash: String? = nil) -> Response {
+        var p = Request.ParamItem(fromBlock: from, toBlock: to, address: addr, blockHash: blockHash, topics: topics)
+        if p.blockHash != nil {
+            p.fromBlock = nil
+            p.toBlock = nil
+        }
+        return generate(request: Request(method: "eth_getLogs", params: [.dict(p)], id: 0))
     }
     
     private static func generate(request: Request) -> Response {
@@ -134,10 +157,28 @@ public final class EthereumRPC {
             } else {
                 rpcResp?.errorClosure?()
             }
-        } else if let r = result as? TxReceipt {
+        } else if let r = result as? TransactionReceipt {
             rpcResp?.stringClosure?(r.status)
         } else {
             rpcResp?.errorClosure?()
+        }
+    }
+    
+    private func responseRawString(_ str: String) {
+        let json = JSON(parseJSON: str)
+        if json["result"].stringValue.count > 0 {
+            responseResult(model: String.self, text: str)
+        } else if json["result"].dictionary != nil {
+            responseResult(model: TransactionReceipt.self, text: str)
+        } else {
+            print("❌", str)
+            let resp = waitingMethods.removeValue(forKey: json["id"].intValue)
+            #if os(iOS)
+            resp?.ctrl?.isUserInteractionEnabled = true
+            #endif
+            guard let msg = json["error"]["message"].string else { return }
+            generalErrorClosure?(msg)
+            print(msg)
         }
     }
     
@@ -166,50 +207,15 @@ public final class EthereumRPC {
 }
 
 public extension EthereumRPC {
-    public enum Network: String {
-        case mainnet
-        case ropsten
-        case rinkeby
-        case goerli
-        case kovan
-        case tobalaba
-        
-        public var chainID: Int {
-            switch self {
-            case .mainnet: return 1
-            case .ropsten: return 3
-            case .rinkeby: return 4
-            case .goerli: return 5
-            case .kovan: return 42
-            case .tobalaba: return 401697
-            }
-        }
-        
-        public var gastrackerWebsite: String {
-            switch self {
-            case .mainnet: return "https://etherscan.io/gastracker"
-            default: return "https://\(self.rawValue).etherscan.io/gastracker"
-            }
-        }
-        
-        /// infura.io WSS URL
-        public var infuraWSSURL: String {
-            return "wss://\(self.rawValue).infura.io/ws/v3/4a994857f9b2458995c780d28b45ccef"
-        }
-        
-        /// etherscan.io
-        public var etherscanApiURL: String {
-            switch self {
-            case .mainnet: return "https://api.etherscan.io/"
-            default: return "https://api-\(self.rawValue).etherscan.io/"
-            }
-        }
-    }
-    
     public enum Exception: Error {
         case requestDataError
         case networkNotConnect
         case unknown
+    }
+    
+    public enum ConnectType: Int {
+        case WebSocket
+        case Https
     }
     
     public struct Request: Codable {
@@ -222,11 +228,32 @@ public extension EthereumRPC {
             var from: String?
             var to: String?
             var data: String?
+            var fromBlock: String?
+            var toBlock: String?
+            var address: String?
+            var blockHash: String?
+            var topics: [[String]]?
+            
+            init(from: String? = nil, to: String? = nil, data: String? = nil, fromBlock: String? = nil,
+                 toBlock: String? = nil, address: String? = nil, blockHash: String? = nil, topics: [[String]]? = nil) {
+                self.from = from
+                self.to = to
+                self.data = data
+                self.toBlock = toBlock
+                self.fromBlock = fromBlock
+                self.address = address
+                self.blockHash = blockHash
+                self.topics = topics
+            }
         }
         
         public enum ParamValue: Codable {
             case dict(ParamItem)
             case string(String)
+            case latest
+            case earliest
+            case pending
+            case flag(Bool)
             
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.singleValueContainer()
@@ -237,6 +264,18 @@ public extension EthereumRPC {
                 case .string(let s):
                     try container.encode(s)
                     return
+                case .flag(let f):
+                    try container.encode(f)
+                    return
+                case .latest:
+                    try container.encode("latest")
+                    return
+                case .earliest:
+                    try container.encode("earliest")
+                    return
+                case .pending:
+                    try container.encode("pending")
+                    return
                 }
             }
             
@@ -244,8 +283,19 @@ public extension EthereumRPC {
                 let container = try decoder.singleValueContainer()
                 if let v = try? container.decode(ParamItem.self) {
                     self = .dict(v)
+                } else if let v = try? container.decode(Bool.self) {
+                    self = .flag(v)
                 } else if let v = try? container.decode(String.self) {
-                    self = .string(v)
+                    switch v {
+                    case "latest":
+                        self = .latest
+                    case "earliest":
+                        self = .earliest
+                    case "pending":
+                        self = .pending
+                    default:
+                        self = .string(v)
+                    }
                 } else {
                     throw DecodingError.typeMismatch(ParamValue.self, DecodingError.Context(codingPath: container.codingPath, debugDescription: "Not a JSON"))
                 }
@@ -256,6 +306,7 @@ public extension EthereumRPC {
     public class Response {
         var request: Request!
         fileprivate var stringClosure: ((String) -> Void)?
+        fileprivate var genericClosure: Any?
         fileprivate var errorClosure: (() -> Void)?
         #if os(iOS)
         fileprivate var ctrl: UIView?
@@ -263,11 +314,44 @@ public extension EthereumRPC {
         
         @discardableResult
         public func responseString(_ completion: @escaping (String) -> Void) -> Self {
-            stringClosure = completion
-            if shared.ws.readyState == .open {
-                try! startWrite()
-            } else {
-                shared.ws.open()
+            return responseT(String.self, completion: completion)
+        }
+        
+        @discardableResult
+        public func responseT<T>(_ target: T.Type, completion: @escaping (T) -> Void) -> Self where T: Codable {
+            genericClosure = completion
+            switch shared.connectType {
+            case .WebSocket:
+                if shared.ws.readyState == .open {
+                    try! startWrite()
+                } else {
+                    shared.ws.open()
+                }
+            case .Https:
+                print("🚀", request.method, request.params.tJSONString() ?? "")
+                MWHttpClient.request(shared.rpcNode.httpURL, method: .post, params: request, encoding: JSONEncoding.default)
+                    .error({ (err) in
+                        #if os(iOS)
+                        self.ctrl?.isUserInteractionEnabled = true
+                        #endif
+                        self.errorClosure?()
+                        print("❌", err.errorMsg ?? "")
+                    })
+                    .responseRaw { (resp) in
+                        #if os(iOS)
+                        self.ctrl?.isUserInteractionEnabled = true
+                        #endif
+                        guard let model = resp.tModel(JSONRPCResult<T>.self), let result = model.result else {
+                            print("❌", resp)
+                            self.errorClosure?()
+                            let json = JSON(parseJSON: resp)
+                            guard let msg = json["error"]["message"].string else { return }
+                            shared.generalErrorClosure?(msg)
+                            return
+                        }
+                        print("✔️", self.request.method ?? "", resp)
+                        completion(result)
+                }
             }
             return self
         }
@@ -297,13 +381,67 @@ public extension EthereumRPC {
     }
     
     public struct JSONRPCResult<T>: Codable where T: Codable {
-        let jsonrpc: String
-        let id: Int
-        var result: T?
+        public let jsonrpc: String
+        public let id: Int
+        public var result: T?
     }
     
-    public struct TxReceipt: Codable {
-        var status: String
+    public struct TransactionReceipt: Codable {
+        public let blockHash: String
+        public let blockNumber: String
+        public let contractAddress: String?
+        public let cumulativeGasUsed: String
+        public let from: String
+        public let gasUsed: String
+        public let logs: [EventLog]
+        public let logsBloom: String
+        public let status: String
+        public let to: String
+        public let transactionHash: String
+        public let transactionIndex: String
+    }
+    
+    public struct EventLog: Codable {
+        public let address: String
+        public let topics: [String]
+        public let blockHash: String
+        public let data: String
+        public let blockNumber: String
+        public let logIndex: String
+        public let removed: Bool
+        public let transactionHash: String
+        public let transactionIndex: String
+        
+        public var ownerAddress: String {
+            return topics[1].replacingOccurrences(of: "0".repetitions(24), with: "")
+        }
+        
+        public var spenderAddress: String {
+            return topics[2].replacingOccurrences(of: "0".repetitions(24), with: "")
+        }
+    }
+    
+    public struct BlockHashResult: Codable {
+        public var difficulty: String
+        public var extraData: String
+        public var gasLimit: String
+        public var gasUsed: String
+        public var hash: String
+        public var logsBloom: String
+        public var miner: String
+        public var mixHash: String
+        public var nonce: String
+        public var number: String
+        public var parentHash: String
+        public var receiptsRoot: String
+        public var sha3Uncles: String
+        public var size: String
+        public var stateRoot: String
+        public var timestamp: String
+        public var totalDifficulty: String
+        public var transactions: [String]
+        public var transactionsRoot: String
+        public var uncles: [String]
     }
 }
 
